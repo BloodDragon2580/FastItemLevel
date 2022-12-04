@@ -2,7 +2,7 @@
 ## Title:|cffd6266cFastItemLevel|r
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Author: BloodDragon2580
-## Version: 1.0
+## Version: 1.1
 
 Libs\semlib\semlib.xml
 FastItemLevel.lua
