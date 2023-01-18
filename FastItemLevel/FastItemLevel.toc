@@ -1,8 +1,8 @@
-## Interface: 100002
+## Interface: 100005
 ## Title:|cffd6266cFastItemLevel|r
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Author: BloodDragon2580
-## Version: 1.1
+## Version: 1.2
 
 Libs\semlib\semlib.xml
 FastItemLevel.lua
