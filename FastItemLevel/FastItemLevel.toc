@@ -1,8 +1,8 @@
-## Interface: 100200
+## Interface: 100205
 ## Title:|cffd6266cFastItemLevel|r
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Author: BloodDragon2580
-## Version: 2.0
+## Version: 2.1
 ## IconTexture: Interface\AddOns\FastItemLevel\Media\Texture\logo
 
 Libs\semlib\semlib.xml
