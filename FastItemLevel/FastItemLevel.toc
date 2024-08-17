@@ -2,8 +2,10 @@
 ## Title:|cffd6266cFastItemLevel|r
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Author: BloodDragon2580
-## Version: 3.1
+## Version: 3.2
 ## IconTexture: Interface\AddOns\FastItemLevel\Media\Texture\logo
+## SavedVariables: FastItemLevelDB
 
-Libs\semlib\semlib.xml
+embeds.xml
+locale\locale.xml
 FastItemLevel.lua
