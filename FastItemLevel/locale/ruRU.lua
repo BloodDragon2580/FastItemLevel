@@ -1,10 +1,10 @@
 local L = LibStub("AceLocale-3.0"):NewLocale("FastItemLevel", "ruRU")
 if not L then return end
 
-L["Settings"] = "Settings"
-L["Cache Size"] = "Cache Size"
-L["Set the maximum number of player inspections to keep in the cache."] = "Set the maximum number of player inspections to keep in the cache."
-L["Inspection Delay"] = "Inspection Delay"
-L["Set the delay (in seconds) before performing an inspection."] = "Set the delay (in seconds) before performing an inspection."
-L["Require Shift Key"] = "Require Shift Key"
-L["Only perform inspections when the Shift key is held down."] = "Only perform inspections when the Shift key is held down."
+L["Settings"] = "Настройки"
+L["Cache Size"] = "Размер кэша"
+L["Set the maximum number of player inspections to keep in the cache."] = "Установить максимальное количество проверок игроков, которые будут храниться в кэше."
+L["Inspection Delay"] = "Задержка при осмотре"
+L["Set the delay (in seconds) before performing an inspection."] = "Установить задержку (в секундах) перед выполнением проверки."
+L["Require Shift Key"] = "Проверка клавишей Shift"
+L["Only perform inspections when the Shift key is held down."] = "Выполнять проверку только при нажатой клавише Shift."
