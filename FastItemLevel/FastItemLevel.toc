@@ -3,7 +3,7 @@
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Notes-ruRU: Показывает уровень предметов игрока во всплывающей подсказке
 ## Author: BloodDragon2580
-## Version: 3.8
+## Version: 3.9
 ## IconTexture: Interface\AddOns\FastItemLevel\Media\Texture\logo
 ## SavedVariables: FastItemLevelDB
 
