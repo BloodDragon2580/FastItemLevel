@@ -2,7 +2,6 @@ local addonName, addonTable = ...
 local FastItemLevel = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("FastItemLevel", false)
 
-
 local defaults = {
     global = {
         cacheSize = 2500,
@@ -258,7 +257,7 @@ local function UpdateMouseoverTooltip(self)
 
         for i = self:NumLines(), 1, -1 do
             local line = _G[self:GetName() .. "TextLeft" .. i]:GetText()
-            if line and strsub(line, 1, 16) == "FastItemLevel" then
+            if (line ~= nil and strsub(line, 1, 16) == "FastItemLevel") then
                 addLine = false
                 break
             end
