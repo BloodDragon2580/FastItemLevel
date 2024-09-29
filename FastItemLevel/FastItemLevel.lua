@@ -1,379 +1,380 @@
-local addonName, addonTable = ...
-local FastItemLevel = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
-local L = LibStub("AceLocale-3.0"):GetLocale("FastItemLevel", false)
+local f = CreateFrame("Frame")
 
-local defaults = {
-    global = {
-        cacheSize = 2500,
-        shiftKeyRequired = false,
-        inspectDelay = 0.025
-    }
+local pendingInspects = {}
+local cachedItemLevels = {}
+local cachedMythicScores = {}
+local cachedSpecs = {}
+local cachedKeystones = {}
+
+FIL_Config = FIL_Config or {
+    showKeystones = true
 }
 
-local _G = _G
-local pairs = pairs
-local time = time
-local tostring = tostring
-local strsub = strsub
-local UnitGUID = UnitGUID
-local UnitIsPlayer = UnitIsPlayer
-local UnitClass = UnitClass
-local GetInspectSpecialization = GetInspectSpecialization
-local GetSpecializationInfoByID = GetSpecializationInfoByID
-local C_PaperDollInfo = C_PaperDollInfo
-local GameTooltip_SetTooltipWaitingForData = GameTooltip_SetTooltipWaitingForData
-
-local RAID_CLASS_COLORS = {
-    ["DEATH KNIGHT"] = {
-        r = 0.77,
-        g = 0.12,
-        b = 0.23
+-- Lokalisierungstabelle
+local L = {
+    ["deDE"] = {
+        ["config_title"] = "FastItemLevel Konfiguration",
+        ["show_keystones"] = "Beste M+ Schlüsselsteine anzeigen",
+        ["close_button"] = "Schließen",
+        ["reading_info"] = "Lese Informationen aus",
+        ["item_level"] = "Itemlevel",
+        ["mythic_rating"] = "M+ Wertung",
+        ["spec"] = "Spezialisierung",
+        ["mythic_info"] = "Mythic+ Info",
+        ["total_mplus_score"] = "Gesamt M+ Wertung"
     },
-    ["DEMON HUNTER"] = {
-        r = 0.64,
-        g = 0.19,
-        b = 0.79
+    ["enUS"] = {
+        ["config_title"] = "FastItemLevel Configuration",
+        ["show_keystones"] = "Show Best M+ Keystones",
+        ["close_button"] = "Close",
+        ["reading_info"] = "Retrieving information",
+        ["item_level"] = "Item Level",
+        ["mythic_rating"] = "M+ Rating",
+        ["spec"] = "Specialization",
+        ["mythic_info"] = "Mythic+ Info",
+        ["total_mplus_score"] = "Total M+ Score"
     },
-    ["DRUID"] = {
-        r = 1.00,
-        g = 0.49,
-        b = 0.04
+    ["frFR"] = {
+        ["config_title"] = "Configuration de FastItemLevel",
+        ["show_keystones"] = "Afficher les meilleures pierres angulaires M+",
+        ["close_button"] = "Fermer",
+        ["reading_info"] = "Récupération des informations",
+        ["item_level"] = "Niveau d'objet",
+        ["mythic_rating"] = "Note M+",
+        ["spec"] = "Spécialisation",
+        ["mythic_info"] = "Info Mythic+",
+        ["total_mplus_score"] = "Score total M+"
     },
-    ["HUNTER"] = {
-        r = 0.67,
-        g = 0.83,
-        b = 0.45
+    ["esES"] = {
+        ["config_title"] = "Configuración de FastItemLevel",
+        ["show_keystones"] = "Mostrar las mejores piedras angulares M+",
+        ["close_button"] = "Cerrar",
+        ["reading_info"] = "Recuperando información",
+        ["item_level"] = "Nivel de objeto",
+        ["mythic_rating"] = "Puntuación M+",
+        ["spec"] = "Especialización",
+        ["mythic_info"] = "Información de M+",
+        ["total_mplus_score"] = "Puntuación total M+"
     },
-    ["MAGE"] = {
-        r = 0.25,
-        g = 0.78,
-        b = 0.92
+    ["itIT"] = {
+        ["config_title"] = "Configurazione di FastItemLevel",
+        ["show_keystones"] = "Mostra le migliori pietre angolari M+",
+        ["close_button"] = "Chiudi",
+        ["reading_info"] = "Recupero delle informazioni",
+        ["item_level"] = "Livello dell'oggetto",
+        ["mythic_rating"] = "Punteggio M+",
+        ["spec"] = "Specializzazione",
+        ["mythic_info"] = "Info Mythic+",
+        ["total_mplus_score"] = "Punteggio totale M+"
     },
-    ["MONK"] = {
-        r = 0.00,
-        g = 1.00,
-        b = 0.59
+    ["ruRU"] = {
+        ["config_title"] = "Конфигурация FastItemLevel",
+        ["show_keystones"] = "Показать лучшие ключи M+",
+        ["close_button"] = "Закрыть",
+        ["reading_info"] = "Получение информации",
+        ["item_level"] = "Уровень предмета",
+        ["mythic_rating"] = "M+ рейтинг",
+        ["spec"] = "Специализация",
+        ["mythic_info"] = "Информация о M+",
+        ["total_mplus_score"] = "Общий рейтинг M+"
     },
-    ["PALADIN"] = {
-        r = 0.96,
-        g = 0.55,
-        b = 0.73
-    },
-    ["PRIEST"] = {
-        r = 1.00,
-        g = 1.00,
-        b = 1.00
-    },
-    ["ROGUE"] = {
-        r = 1.00,
-        g = 0.96,
-        b = 0.41
-    },
-    ["SHAMAN"] = {
-        r = 0.00,
-        g = 0.44,
-        b = 0.87
-    },
-    ["WARLOCK"] = {
-        r = 0.53,
-        g = 0.53,
-        b = 0.93
-    },
-    ["WARRIOR"] = {
-        r = 0.78,
-        g = 0.61,
-        b = 0.43
-    },
-    ["EVOKER"] = {
-        r = 0.2,
-        g = 0.576,
-        b = 0.498
+    ["zhCN"] = {
+        ["config_title"] = "FastItemLevel 配置",
+        ["show_keystones"] = "显示最佳 M+ 钥石",
+        ["close_button"] = "关闭",
+        ["reading_info"] = "正在获取信息",
+        ["item_level"] = "物品等级",
+        ["mythic_rating"] = "M+ 评分",
+        ["spec"] = "专精",
+        ["mythic_info"] = "M+ 信息",
+        ["total_mplus_score"] = "总 M+ 评分"
     }
+    -- Weitere Sprachen können hier hinzugefügt werden
 }
 
-local FastItemLevelDebug = false
-local throttleTime = 0.1
-local cacheExpireTime = 600
+-- Ermitteln der aktuellen Sprache
+local locale = GetLocale()
+local lang = L[locale] or L["enUS"]
 
-local printDebug = FastItemLevelDebug and print or function()
+local function SaveConfig()
+    FastItemLevelDB = FIL_Config
 end
 
-local InspectCache = {}
-local InspectCacheOrder = {}
-
-local function UpdateCacheOrder(key)
-    local order = InspectCacheOrder[key]
-    if order then
-        table.remove(InspectCacheOrder, order)
-    end
-    table.insert(InspectCacheOrder, key)
-end
-
-local function TrimCache()
-    while #InspectCacheOrder > FastItemLevel.db.global.cacheSize do
-        local key = table.remove(InspectCacheOrder, 1)
-        InspectCache[key] = nil
-        printDebug("Removed cache entry for " .. key .. " due to cache size limit")
-    end
-end
-
-function FastItemLevel:OnInitialize()
-    self.db = LibStub("AceDB-3.0"):New("FastItemLevelDB", defaults, true)
-
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, self:GetOptions())
-    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, "|cffd6266cFastItemLevel|r")
-
-    self:RegisterChatCommand("fil", "ChatCommand")
-    self:RegisterChatCommand("FastItemLevel", "ChatCommand")
-end
-
-function FastItemLevel:GetOptions()
-    return {
-        type = "group",
-        childGroups = "tab",
-        args = {
-            settings = {
-                type = "group",
-                name = L["Settings"],
-                order = 1,
-                args = {
-                    cacheSize = {
-                        order = 1,
-                        type = "range",
-                        name = L["Cache Size"],
-                        desc = L["Set the maximum number of player inspections to keep in the cache."],
-                        min = 100,
-                        max = 5000,
-                        step = 100,
-                        get = function()
-                            return self.db.global.cacheSize
-                        end,
-                        set = function(_, value)
-                            self.db.global.cacheSize = value;
-                            TrimCache()
-                        end
-                    },
-                    inspectDelay = {
-                        order = 2,
-                        type = "range",
-                        name = L["Inspection Delay"],
-                        desc = L["Set the delay (in seconds) before performing an inspection."],
-                        min = 0,
-                        max = 1,
-                        step = 0.01,
-                        get = function()
-                            return self.db.global.inspectDelay
-                        end,
-                        set = function(_, value)
-                            self.db.global.inspectDelay = value
-                        end
-                    },
-                    spacer = {
-                        order = 3,
-                        type = "description",
-                        name = "",
-                    },
-                    shiftKeyRequired = {
-                        order = 4,
-                        type = "toggle",
-                        name = L["Require Shift Key"],
-                        desc = L["Only perform inspections when the Shift key is held down."],
-                        get = function()
-                            return self.db.global.shiftKeyRequired
-                        end,
-                        set = function(_, value)
-                            self.db.global.shiftKeyRequired = value
-                        end
-                    },
-                },
-            },
-        },
-    }
-end
-
-function FastItemLevel:ChatCommand(input)
-    if input == "" then
-        LibStub("AceConfigDialog-3.0"):Open(addonName)
-    end
-end
-
-local function GetSpecNameByID(specID)
-    local specName = select(2, GetSpecializationInfoByID(specID))
-    return specName or "N/A"
-end
-
-local function GetInspectData(guid)
-    local data = InspectCache[guid]
-    if data then
-        if time() - data.timestamp >= cacheExpireTime then
-            InspectCache[guid] = nil
-            printDebug("Removed cache entry for " .. guid .. " due to expiration")
-            return nil
-        else
-            UpdateCacheOrder(guid)
-        end
-    end
-    return data
-end
-
-local function SetInspectData(guid, data)
-    if not InspectCache[guid] then
-        if #InspectCacheOrder >= FastItemLevel.db.global.cacheSize then
-            TrimCache()
-        end
-        UpdateCacheOrder(guid)
-    end
-    InspectCache[guid] = data
-end
-
-local lastInspectTime = 0
-local inspectQueue = {}
-
-local function ProcessInspectQueue()
-    if #inspectQueue > 0 then
-        local guid = table.remove(inspectQueue, 1)
-        local unit = "mouseover"
-        if UnitGUID(unit) == guid and CanInspect(unit, true) then
-            NotifyInspect(unit)
-            printDebug("Inspecting " .. UnitName(unit))
-        else
-            printDebug("Cannot inspect, skipping")
+local function LoadConfig()
+    if FastItemLevelDB then
+        for k, v in pairs(FastItemLevelDB) do
+            FIL_Config[k] = v
         end
     end
 end
 
-local function UpdateMouseoverTooltip(self)
-    if not UnitIsPlayer("mouseover") then
-        return
-    end
+local function CreateConfigMenu()
+    local frame = CreateFrame("Frame", "FILConfigFrame", UIParent, "BasicFrameTemplateWithInset")
+    frame:SetSize(300, 150)
+    frame:SetPoint("CENTER")
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:Hide()
 
-    local guid = UnitGUID("mouseover")
-    local data = InspectCache[guid]
+    frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    frame.title:SetPoint("TOP", 0, -5)
+    frame.title:SetText(lang["config_title"])
 
-    if data then
-        GameTooltip_SetTooltipWaitingForData(self, false)
-
-        local addLine = true
-
-        for i = self:NumLines(), 1, -1 do
-            local line = _G[self:GetName() .. "TextLeft" .. i]:GetText()
-            if (line ~= nil and strsub(line, 1, 16) == "FastItemLevel") then
-                addLine = false
-                break
-            end
-        end
-
-        if not addLine then
-            return
-        end
-
-        local specName = data.specName
-        local specColor = RAID_CLASS_COLORS[string.upper(data.class)]
-
-        if specColor == nil then
-            printDebug("ERROR: specColor is nil for " .. data.class)
-            specColor = RAID_CLASS_COLORS["PRIEST"]
-        end
-
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("FastItemLevel", 1, 0.85, 0, 1)
-        GameTooltip:AddLine(tostring(specName) .. " (" .. data.ilevel .. ")", specColor.r, specColor.g, specColor.b, 1)
-        GameTooltip:Show()
-    else
-        GameTooltip_SetTooltipWaitingForData(self, true)
-    end
-end
-
-function FastItemLevel:OnShiftKeyDown()
-    if not self.db.global.shiftKeyRequired then
-        return
-    end
-
-    local unit = "mouseover"
-    if UnitIsPlayer(unit) then
-        self:UPDATE_MOUSEOVER_UNIT()
-    end
-end
-
-function FastItemLevel:OnEnable()
-    self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
-    self:RegisterEvent("INSPECT_READY")
-
-    GameTooltip:HookScript("OnUpdate", function(self)
-        if not UnitIsPlayer("mouseover") then
-            return
-        end
-
-        local guid = UnitGUID("mouseover")
-        local data = InspectCache[guid]
-
-        if data then
-            UpdateMouseoverTooltip(self)
-        else
-            GameTooltip_SetTooltipWaitingForData(self, true)
-        end
+    local showKeystonesCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    showKeystonesCheckbox:SetPoint("TOPLEFT", 20, -40)
+    showKeystonesCheckbox.text = showKeystonesCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    showKeystonesCheckbox.text:SetPoint("LEFT", showKeystonesCheckbox, "RIGHT", 5, 0)
+    showKeystonesCheckbox.text:SetText(lang["show_keystones"])
+    showKeystonesCheckbox:SetScript("OnClick", function(self)
+        FIL_Config.showKeystones = self:GetChecked()
+        SaveConfig()
     end)
 
-    self:RegisterEvent("MODIFIER_STATE_CHANGED")
+    frame:SetScript("OnShow", function()
+        showKeystonesCheckbox:SetChecked(FIL_Config.showKeystones)
+    end)
+
+    local closeButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    closeButton:SetSize(80, 22)
+    closeButton:SetPoint("BOTTOM", 0, 10)
+    closeButton:SetText(lang["close_button"])
+    closeButton:SetScript("OnClick", function() frame:Hide() end)
+
+    return frame
 end
 
-function FastItemLevel:MODIFIER_STATE_CHANGED(_, key, state)
-    if key == "LSHIFT" and state == 1 then
-        self:OnShiftKeyDown()
+local configFrame = CreateConfigMenu()
+
+SLASH_FIL1 = "/fil"
+SlashCmdList["FIL"] = function(msg)
+    if msg == "config" then
+        configFrame:Show()
     end
 end
 
-function FastItemLevel:UPDATE_MOUSEOVER_UNIT()
-    printDebug("UPDATE_MOUSEOVER_UNIT")
-    local unit = "mouseover"
-    if UnitIsPlayer(unit) then
-        local guid = UnitGUID(unit)
-        local data = GetInspectData(guid)
-        local shiftKeyDown = IsShiftKeyDown()
+local function CalculateAverageItemLevel(unit)
+    local total, count = 0, 0
+    for i = 1, 17 do
+        if i ~= 4 then
+            local itemLink = GetInventoryItemLink(unit, i)
+            if itemLink then
+                local _, _, _, itemLevel = GetItemInfo(itemLink)
+                if itemLevel and itemLevel > 0 then
+                    total = total + itemLevel
+                    count = count + 1
+                end
+            end
+        end
+    end
+    if count > 0 then
+        return total / count
+    else
+        return nil
+    end
+end
 
-        if not data or (time() - data.timestamp >= cacheExpireTime) then
-            if (not self.db.global.shiftKeyRequired or shiftKeyDown) and CanInspect(unit, true) then
-                C_Timer.After(self.db.global.inspectDelay, function()
-                    if UnitGUID("mouseover") == guid then
-                        table.insert(inspectQueue, 1, guid)
-                        printDebug("Queued mouseover inspect for " .. UnitName(unit))
-                        ProcessInspectQueue()
+local function GetItemLevelColor(itemLevel)
+    if not itemLevel then return 1, 1, 1 end
+    if itemLevel >= 613 then
+        return 1, 0.5, 0
+    elseif itemLevel >= 598 then
+        return 0.8, 0.3, 0.8
+    elseif itemLevel >= 580 then
+        return 0, 0.5, 1
+    else
+        return 0, 1, 0
+    end
+end
+
+local function GetKeystoneInfo(unit)
+    local keystones = {}
+    if C_PlayerInfo and C_PlayerInfo.GetPlayerMythicPlusRatingSummary then
+        local summary = C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
+        if summary then
+            local overallScore = summary.currentSeasonScore or 0
+            table.insert(keystones, {
+                name = lang["total_mplus_score"],
+                level = overallScore,
+                time = ""
+            })
+
+            if UnitIsUnit(unit, "player") and C_MythicPlus and C_MythicPlus.GetSeasonBestAffixScoreInfoForMap then
+                local mapIDs = C_ChallengeMode.GetMapTable()
+                for _, mapID in ipairs(mapIDs) do
+                    local mapInfo = C_ChallengeMode.GetMapUIInfo(mapID)
+                    local affixScores = C_MythicPlus.GetSeasonBestAffixScoreInfoForMap(mapID)
+                    if affixScores and #affixScores > 0 then
+                        local bestRun = affixScores[1]
+                        local level = bestRun.level or 0
+                        local durationSec = bestRun.durationSec or 0
+                        local minutes = math.floor(durationSec / 60)
+                        local seconds = durationSec % 60
+                        table.insert(keystones, {
+                            name = mapInfo,
+                            level = level,
+                            time = string.format("%d:%02d", minutes, seconds)
+                        })
                     end
-                end)
-            else
-                printDebug("Cannot inspect " .. UnitName(unit) .. ", skipping")
+                end
+            elseif summary.runs then
+                for _, run in ipairs(summary.runs) do
+                    local mapInfo = C_ChallengeMode.GetMapUIInfo(run.challengeModeID)
+                    if mapInfo then
+                        table.insert(keystones, {
+                            name = mapInfo,
+                            level = run.bestRunLevel,
+                            time = ""
+                        })
+                    end
+                end
             end
+        end
+    end
+    return keystones
+end
+
+local function GetItemLevelAndInfo(unit, callback)
+    local guid = UnitGUID(unit)
+    if not guid then
+        callback(nil, nil, nil, nil)
+        return
+    end
+
+    local keystones = GetKeystoneInfo(unit)
+
+    if cachedItemLevels[guid] and cachedMythicScores[guid] and cachedSpecs[guid] then
+        callback(cachedItemLevels[guid], cachedMythicScores[guid], cachedSpecs[guid], keystones)
+        return
+    end
+
+    if not CanInspect(unit) then
+        callback(nil, nil, nil, nil)
+        return
+    end
+
+    pendingInspects[guid] = callback
+    NotifyInspect(unit)
+    callback("reading", "reading", "reading", keystones)
+end
+
+local function AddInfoToTooltip(tooltip, unit)
+    GetItemLevelAndInfo(unit, function(avgItemLevel, mythicScore, spec, keystones)
+        if not tooltip or not tooltip.AddLine then return end
+
+        for i = tooltip:NumLines(), 1, -1 do
+            local line = _G[tooltip:GetName().."TextLeft"..i]
+            if line and line:GetText() and (line:GetText():match("^"..lang["item_level"]..":") or line:GetText():match("^"..lang["mythic_rating"]..":") or line:GetText():match("^"..lang["spec"]..":") or line:GetText():match("^"..lang["mythic_info"]..":") or line:GetText() == lang["reading_info"]) then
+                line:SetText(nil)
+            end
+        end
+
+        if avgItemLevel == "reading" then
+            tooltip:AddLine(lang["reading_info"], 1, 1, 1)
         else
-            printDebug("Using cached data for " .. UnitName(unit) .. ", last updated " .. (time() - data.timestamp) ..
-                           " seconds ago")
-            UpdateMouseoverTooltip(GameTooltip)
+            if avgItemLevel then
+                local r, g, b = GetItemLevelColor(avgItemLevel)
+                tooltip:AddLine(lang["item_level"] .. ": " .. string.format("%.2f", avgItemLevel), r, g, b)
+            end
+
+            if spec then
+                tooltip:AddLine(lang["spec"] .. ": " .. spec, 0, 1, 1)
+            end
+
+            if keystones and #keystones > 0 then
+                tooltip:AddLine(lang["mythic_info"] .. ":", 1, 1, 0)
+                for _, keystone in ipairs(keystones) do
+                    if keystone.name == lang["total_mplus_score"] then
+                        tooltip:AddLine(string.format(" %s: %d", keystone.name, keystone.level), 1, .5, .0) -- Orange für Gesamtwertung
+                        break
+                    end
+                end
+
+                if FIL_Config.showKeystones then
+                    for _, keystone in ipairs(keystones) do
+                        if keystone.name ~= lang["total_mplus_score"] then
+                            if keystone.time ~= "" then
+                                tooltip:AddLine(string.format(" %s: +%d (%s)", keystone.name, keystone.level, keystone.time), .8, .8, .8)
+                            else
+                                tooltip:AddLine(string.format(" %s: +%d", keystone.name, keystone.level), .8, .8, .8)
+                            end
+                        end
+                    end
+                end
+            end
         end
-    end
+        tooltip:Show()
+    end)
 end
 
-function FastItemLevel:INSPECT_READY(_, guid)
-    if guid then
-        local class, _, classId = UnitClass("mouseover")
-        local spec = GetInspectSpecialization("mouseover")
-        local specName = GetSpecNameByID(spec)
-        local ilevel = C_PaperDollInfo.GetInspectItemLevel("mouseover")
+local function HookTooltip()
+    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
+        local _, unit = tooltip:GetUnit()
+        if unit and UnitIsPlayer(unit) and UnitExists(unit) then
+            AddInfoToTooltip(tooltip, unit)
+        end
+    end)
+end
 
-        if ilevel ~= 0 then
-            local data = {
-                class = class,
-                spec = spec,
-                specName = specName,
-                ilevel = ilevel,
-                timestamp = time()
-            }
+local function InitializeTooltipHooks()
+    HookTooltip()
+end
 
-            SetInspectData(guid, data)
-            printDebug("InspectUnit: " .. guid .. " " .. class .. " " .. spec .. " " .. ilevel)
+f:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_LOGIN" then
+        LoadConfig()
+        InitializeTooltipHooks()
+    elseif event == "INSPECT_READY" then
+        local guid = ...
+        if pendingInspects[guid] then
+            local unit = nil
+            for _, unitType in ipairs({"player", "target", "mouseover", "focus"}) do
+                if UnitGUID(unitType) == guid then
+                    unit = unitType
+                    break
+                end
+            end
+            if not unit then
+                for i = 1, 40 do
+                    local partyUnit = (i <= 5) and ("party"..i) or ("raid"..i)
+                    if UnitGUID(partyUnit) == guid then
+                        unit = partyUnit
+                        break
+                    end
+                end
+            end
+            if unit then
+                local avgItemLevel = CalculateAverageItemLevel(unit)
+                local mythicScore = C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
+                mythicScore = mythicScore and mythicScore.currentSeasonScore or nil
+                local specID = GetInspectSpecialization(unit)
+                local _, spec = GetSpecializationInfoByID(specID)
+                local keystones = GetKeystoneInfo(unit)
 
-            if UnitGUID("mouseover") == guid then
-                printDebug("Refreshing mouseover tooltip for " .. UnitName("mouseover"))
-                UpdateMouseoverTooltip(GameTooltip)
+                cachedItemLevels[guid] = avgItemLevel
+                cachedMythicScores[guid] = mythicScore
+                cachedSpecs[guid] = spec
+                cachedKeystones[guid] = keystones
+
+                if pendingInspects[guid] then
+                    pendingInspects[guid](avgItemLevel, mythicScore, spec, keystones)
+                    pendingInspects[guid] = nil
+                end
             end
         end
     end
+end)
+
+f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("INSPECT_READY")
+
+local function ClearCache()
+    wipe(cachedItemLevels)
+    wipe(cachedMythicScores)
+    wipe(cachedSpecs)
+    wipe(cachedKeystones)
 end
+
+C_Timer.NewTicker(300, ClearCache)
