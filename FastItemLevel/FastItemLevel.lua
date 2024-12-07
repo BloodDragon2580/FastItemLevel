@@ -7,7 +7,9 @@ local cachedSpecs = {}
 local cachedKeystones = {}
 
 FIL_Config = FIL_Config or {
-    showKeystones = true
+    showKeystones = true,
+    showMythicScore = true, -- Option für Mythic+-Score
+    showSpec = true         -- Option für Spezialisierung
 }
 
 -- Lokalisierungstabelle
@@ -15,6 +17,8 @@ local L = {
     ["deDE"] = {
         ["config_title"] = "FastItemLevel Konfiguration",
         ["show_keystones"] = "Beste M+ Schlüsselsteine anzeigen",
+		["show_mythic_score"] = "M+ Wertung anzeigen", -- Neue Option
+		["show_spec"] = "Spezialisierung anzeigen",    -- Neue Option
         ["close_button"] = "Schließen",
         ["reading_info"] = "Lese Informationen aus",
         ["item_level"] = "Itemlevel",
@@ -26,6 +30,8 @@ local L = {
     ["enUS"] = {
         ["config_title"] = "FastItemLevel Configuration",
         ["show_keystones"] = "Show Best M+ Keystones",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "Close",
         ["reading_info"] = "Retrieving information",
         ["item_level"] = "Item Level",
@@ -37,6 +43,8 @@ local L = {
     ["frFR"] = {
         ["config_title"] = "Configuration de FastItemLevel",
         ["show_keystones"] = "Afficher les meilleures pierres angulaires M+",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "Fermer",
         ["reading_info"] = "Récupération des informations",
         ["item_level"] = "Niveau d'objet",
@@ -48,6 +56,8 @@ local L = {
     ["esES"] = {
         ["config_title"] = "Configuración de FastItemLevel",
         ["show_keystones"] = "Mostrar las mejores piedras angulares M+",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "Cerrar",
         ["reading_info"] = "Recuperando información",
         ["item_level"] = "Nivel de objeto",
@@ -59,6 +69,8 @@ local L = {
     ["itIT"] = {
         ["config_title"] = "Configurazione di FastItemLevel",
         ["show_keystones"] = "Mostra le migliori pietre angolari M+",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "Chiudi",
         ["reading_info"] = "Recupero delle informazioni",
         ["item_level"] = "Livello dell'oggetto",
@@ -70,6 +82,8 @@ local L = {
     ["ruRU"] = {
         ["config_title"] = "Конфигурация FastItemLevel",
         ["show_keystones"] = "Показать лучшие ключи M+",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "Закрыть",
         ["reading_info"] = "Получение информации",
         ["item_level"] = "Уровень предмета",
@@ -81,6 +95,8 @@ local L = {
     ["zhCN"] = {
         ["config_title"] = "FastItemLevel 配置",
         ["show_keystones"] = "显示最佳 M+ 钥石",
+		["show_mythic_score"] = "Show M+ Score", -- Neue Option
+		["show_spec"] = "Show Specialization",    -- Neue Option
         ["close_button"] = "关闭",
         ["reading_info"] = "正在获取信息",
         ["item_level"] = "物品等级",
@@ -123,19 +139,41 @@ local function CreateConfigMenu()
     frame.title:SetPoint("TOP", 0, -5)
     frame.title:SetText(lang["config_title"])
 
-    local showKeystonesCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    showKeystonesCheckbox:SetPoint("TOPLEFT", 20, -40)
-    showKeystonesCheckbox.text = showKeystonesCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    showKeystonesCheckbox.text:SetPoint("LEFT", showKeystonesCheckbox, "RIGHT", 5, 0)
-    showKeystonesCheckbox.text:SetText(lang["show_keystones"])
-    showKeystonesCheckbox:SetScript("OnClick", function(self)
-        FIL_Config.showKeystones = self:GetChecked()
-        SaveConfig()
-    end)
+	local showKeystonesCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+	showKeystonesCheckbox:SetPoint("TOPLEFT", 20, -40)
+	showKeystonesCheckbox.text = showKeystonesCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	showKeystonesCheckbox.text:SetPoint("LEFT", showKeystonesCheckbox, "RIGHT", 5, 0)
+	showKeystonesCheckbox.text:SetText(lang["show_keystones"])
+	showKeystonesCheckbox:SetScript("OnClick", function(self)
+		FIL_Config.showKeystones = self:GetChecked()
+		SaveConfig()
+	end)
 
-    frame:SetScript("OnShow", function()
-        showKeystonesCheckbox:SetChecked(FIL_Config.showKeystones)
-    end)
+	local showMythicScoreCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+	showMythicScoreCheckbox:SetPoint("TOPLEFT", 20, -70) -- Position unter der ersten Checkbox
+	showMythicScoreCheckbox.text = showMythicScoreCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	showMythicScoreCheckbox.text:SetPoint("LEFT", showMythicScoreCheckbox, "RIGHT", 5, 0)
+	showMythicScoreCheckbox.text:SetText(lang["show_mythic_score"])
+	showMythicScoreCheckbox:SetScript("OnClick", function(self)
+		FIL_Config.showMythicScore = self:GetChecked()
+		SaveConfig()
+	end)
+
+	local showSpecCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+	showSpecCheckbox:SetPoint("TOPLEFT", 20, -100) -- Position unter der zweiten Checkbox
+	showSpecCheckbox.text = showSpecCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	showSpecCheckbox.text:SetPoint("LEFT", showSpecCheckbox, "RIGHT", 5, 0)
+	showSpecCheckbox.text:SetText(lang["show_spec"])
+	showSpecCheckbox:SetScript("OnClick", function(self)
+		FIL_Config.showSpec = self:GetChecked()
+		SaveConfig()
+	end)
+
+	frame:SetScript("OnShow", function()
+		showKeystonesCheckbox:SetChecked(FIL_Config.showKeystones)
+		showMythicScoreCheckbox:SetChecked(FIL_Config.showMythicScore)
+		showSpecCheckbox:SetChecked(FIL_Config.showSpec)
+	end)
 
     local closeButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     closeButton:SetSize(80, 22)
@@ -264,6 +302,7 @@ local function AddInfoToTooltip(tooltip, unit)
     GetItemLevelAndInfo(unit, function(avgItemLevel, mythicScore, spec, keystones)
         if not tooltip or not tooltip.AddLine then return end
 
+        -- Entferne alte Zeilen, falls vorhanden
         for i = tooltip:NumLines(), 1, -1 do
             local line = _G[tooltip:GetName().."TextLeft"..i]
             if line and line:GetText() and (line:GetText():match("^"..lang["item_level"]..":") or line:GetText():match("^"..lang["mythic_rating"]..":") or line:GetText():match("^"..lang["spec"]..":") or line:GetText():match("^"..lang["mythic_info"]..":") or line:GetText() == lang["reading_info"]) then
@@ -274,24 +313,32 @@ local function AddInfoToTooltip(tooltip, unit)
         if avgItemLevel == "reading" then
             tooltip:AddLine(lang["reading_info"], 1, 1, 1)
         else
+            -- Item-Level hinzufügen
             if avgItemLevel then
                 local r, g, b = GetItemLevelColor(avgItemLevel)
                 tooltip:AddLine(lang["item_level"] .. ": " .. string.format("%.2f", avgItemLevel), r, g, b)
             end
 
-            if spec then
+            -- Spezialisierung hinzufügen (wenn aktiviert)
+            if FIL_Config.showSpec and spec then
                 tooltip:AddLine(lang["spec"] .. ": " .. spec, 0, 1, 1)
             end
 
-            if keystones and #keystones > 0 then
+            -- Mythic+-Informationen hinzufügen (nur wenn aktiviert)
+            if keystones and #keystones > 0 and (FIL_Config.showMythicScore or FIL_Config.showKeystones) then
                 tooltip:AddLine(lang["mythic_info"] .. ":", 1, 1, 0)
-                for _, keystone in ipairs(keystones) do
-                    if keystone.name == lang["total_mplus_score"] then
-                        tooltip:AddLine(string.format(" %s: %d", keystone.name, keystone.level), 1, .5, .0) -- Orange für Gesamtwertung
-                        break
+
+                -- Mythic+-Score hinzufügen (wenn aktiviert)
+                if FIL_Config.showMythicScore then
+                    for _, keystone in ipairs(keystones) do
+                        if keystone.name == lang["total_mplus_score"] then
+                            tooltip:AddLine(string.format(" %s: %d", keystone.name, keystone.level), 1, .5, .0) -- Orange für Gesamtwertung
+                            break
+                        end
                     end
                 end
 
+                -- Keystone-Details hinzufügen (wenn aktiviert)
                 if FIL_Config.showKeystones then
                     for _, keystone in ipairs(keystones) do
                         if keystone.name ~= lang["total_mplus_score"] then
