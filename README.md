@@ -15,7 +15,7 @@ Einstellungen:
 Cache-Größe: Bestimme, wie viele Spielerinspektionen im Cache gehalten werden sollen.
 Inspektionsverzögerung: Lege fest, wie lange das Addon warten soll, bevor es eine Inspektion durchführt.
 Shift-Taste erforderlich: Optional kann eingestellt werden, dass Inspektionen nur bei gedrückter Shift-Taste ausgeführt werden.
-Nutzung: Verwende die Befehle /fil oder /FastItemLevel, um die Konfiguration des Addons anzupassen. Das Addon zeigt die gesammelten Daten in den Tooltips von Spielern an, wenn du mit der Maus über sie fährst.
+Nutzung: Verwende die Befehle /fil config , um die Konfiguration des Addons anzupassen. Das Addon zeigt die gesammelten Daten in den Tooltips von Spielern an, wenn du mit der Maus über sie fährst.
 
 Mit FastItemLevel erhältst du eine präzise und schnelle Übersicht über die Ausrüstung und Spezialisierung anderer Spieler, um besser informierte Entscheidungen in deinen World of Warcraft-Abenteuern zu treffen.
 
@@ -36,6 +36,6 @@ Settings:
 Cache Size: Set the number of player inspections to keep in the cache.
 Inspection Delay: Specify the delay before performing an inspection.
 Shift Key Required: Optionally require the Shift key to be held down for inspections.
-Usage: Use the commands /fil or /FastItemLevel to adjust the addon’s settings. The addon displays collected data in player tooltips when you hover over them.
+Usage: Use the commands /fil config to adjust the addon’s settings. The addon displays collected data in player tooltips when you hover over them.
 
 With FastItemLevel, you get a precise and fast overview of other players' gear and specialization, helping you make better-informed decisions in your World of Warcraft adventures.
