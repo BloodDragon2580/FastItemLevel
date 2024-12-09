@@ -9,7 +9,8 @@ local cachedKeystones = {}
 FIL_Config = FIL_Config or {
     showKeystones = true,
     showMythicScore = true, -- Option für Mythic+-Score
-    showSpec = true         -- Option für Spezialisierung
+    showSpec = true,         -- Option für Spezialisierung
+	colorItemLevel = true   -- Option für farbiges Item-Level
 }
 
 -- Lokalisierungstabelle
@@ -17,8 +18,9 @@ local L = {
     ["deDE"] = {
         ["config_title"] = "FastItemLevel Konfiguration",
         ["show_keystones"] = "Beste M+ Schlüsselsteine anzeigen",
-		["show_mythic_score"] = "M+ Wertung anzeigen", -- Neue Option
-		["show_spec"] = "Spezialisierung anzeigen",    -- Neue Option
+        ["show_mythic_score"] = "M+ Wertung anzeigen", -- Neue Option
+        ["show_spec"] = "Spezialisierung anzeigen",    -- Neue Option
+        ["color_item_level"] = "Itemlevel-Farben aktivieren", -- Neue Option
         ["close_button"] = "Schließen",
         ["reading_info"] = "Lese Informationen aus",
         ["item_level"] = "Itemlevel",
@@ -30,8 +32,9 @@ local L = {
     ["enUS"] = {
         ["config_title"] = "FastItemLevel Configuration",
         ["show_keystones"] = "Show Best M+ Keystones",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "Show M+ Score", -- Neue Option
+        ["show_spec"] = "Show Specialization",    -- Neue Option
+        ["color_item_level"] = "Enable Item Level Colors", -- Neue Option
         ["close_button"] = "Close",
         ["reading_info"] = "Retrieving information",
         ["item_level"] = "Item Level",
@@ -43,8 +46,9 @@ local L = {
     ["frFR"] = {
         ["config_title"] = "Configuration de FastItemLevel",
         ["show_keystones"] = "Afficher les meilleures pierres angulaires M+",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "Afficher la note M+", -- Neue Option
+        ["show_spec"] = "Afficher la spécialisation",    -- Neue Option
+        ["color_item_level"] = "Activer les couleurs de niveau d'objet", -- Neue Option
         ["close_button"] = "Fermer",
         ["reading_info"] = "Récupération des informations",
         ["item_level"] = "Niveau d'objet",
@@ -56,8 +60,9 @@ local L = {
     ["esES"] = {
         ["config_title"] = "Configuración de FastItemLevel",
         ["show_keystones"] = "Mostrar las mejores piedras angulares M+",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "Mostrar puntuación M+", -- Neue Option
+        ["show_spec"] = "Mostrar especialización",    -- Neue Option
+        ["color_item_level"] = "Habilitar colores del nivel de objeto", -- Neue Option
         ["close_button"] = "Cerrar",
         ["reading_info"] = "Recuperando información",
         ["item_level"] = "Nivel de objeto",
@@ -69,8 +74,9 @@ local L = {
     ["itIT"] = {
         ["config_title"] = "Configurazione di FastItemLevel",
         ["show_keystones"] = "Mostra le migliori pietre angolari M+",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "Mostra il punteggio M+", -- Neue Option
+        ["show_spec"] = "Mostra specializzazione",    -- Neue Option
+        ["color_item_level"] = "Abilita i colori del livello dell'oggetto", -- Neue Option
         ["close_button"] = "Chiudi",
         ["reading_info"] = "Recupero delle informazioni",
         ["item_level"] = "Livello dell'oggetto",
@@ -82,8 +88,9 @@ local L = {
     ["ruRU"] = {
         ["config_title"] = "Конфигурация FastItemLevel",
         ["show_keystones"] = "Показать лучшие ключи M+",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "Показать M+ рейтинг", -- Neue Option
+        ["show_spec"] = "Показать специализацию",    -- Neue Option
+        ["color_item_level"] = "Включить цвета уровня предмета", -- Neue Option
         ["close_button"] = "Закрыть",
         ["reading_info"] = "Получение информации",
         ["item_level"] = "Уровень предмета",
@@ -95,8 +102,9 @@ local L = {
     ["zhCN"] = {
         ["config_title"] = "FastItemLevel 配置",
         ["show_keystones"] = "显示最佳 M+ 钥石",
-		["show_mythic_score"] = "Show M+ Score", -- Neue Option
-		["show_spec"] = "Show Specialization",    -- Neue Option
+        ["show_mythic_score"] = "显示 M+ 评分", -- Neue Option
+        ["show_spec"] = "显示专精",    -- Neue Option
+        ["color_item_level"] = "启用物品等级颜色", -- Neue Option
         ["close_button"] = "关闭",
         ["reading_info"] = "正在获取信息",
         ["item_level"] = "物品等级",
@@ -126,7 +134,7 @@ end
 
 local function CreateConfigMenu()
     local frame = CreateFrame("Frame", "FILConfigFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(300, 150)
+    frame:SetSize(300, 200) -- Erhöht, um Platz für die zusätzliche Checkbox zu schaffen
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -139,41 +147,54 @@ local function CreateConfigMenu()
     frame.title:SetPoint("TOP", 0, -5)
     frame.title:SetText(lang["config_title"])
 
-	local showKeystonesCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-	showKeystonesCheckbox:SetPoint("TOPLEFT", 20, -40)
-	showKeystonesCheckbox.text = showKeystonesCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	showKeystonesCheckbox.text:SetPoint("LEFT", showKeystonesCheckbox, "RIGHT", 5, 0)
-	showKeystonesCheckbox.text:SetText(lang["show_keystones"])
-	showKeystonesCheckbox:SetScript("OnClick", function(self)
-		FIL_Config.showKeystones = self:GetChecked()
-		SaveConfig()
-	end)
+    local showKeystonesCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    showKeystonesCheckbox:SetPoint("TOPLEFT", 20, -40)
+    showKeystonesCheckbox.text = showKeystonesCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    showKeystonesCheckbox.text:SetPoint("LEFT", showKeystonesCheckbox, "RIGHT", 5, 0)
+    showKeystonesCheckbox.text:SetText(lang["show_keystones"])
+    showKeystonesCheckbox:SetScript("OnClick", function(self)
+        FIL_Config.showKeystones = self:GetChecked()
+        SaveConfig()
+    end)
 
-	local showMythicScoreCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-	showMythicScoreCheckbox:SetPoint("TOPLEFT", 20, -70) -- Position unter der ersten Checkbox
-	showMythicScoreCheckbox.text = showMythicScoreCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	showMythicScoreCheckbox.text:SetPoint("LEFT", showMythicScoreCheckbox, "RIGHT", 5, 0)
-	showMythicScoreCheckbox.text:SetText(lang["show_mythic_score"])
-	showMythicScoreCheckbox:SetScript("OnClick", function(self)
-		FIL_Config.showMythicScore = self:GetChecked()
-		SaveConfig()
-	end)
+    local showMythicScoreCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    showMythicScoreCheckbox:SetPoint("TOPLEFT", 20, -70) -- Position unter der ersten Checkbox
+    showMythicScoreCheckbox.text = showMythicScoreCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    showMythicScoreCheckbox.text:SetPoint("LEFT", showMythicScoreCheckbox, "RIGHT", 5, 0)
+    showMythicScoreCheckbox.text:SetText(lang["show_mythic_score"])
+    showMythicScoreCheckbox:SetScript("OnClick", function(self)
+        FIL_Config.showMythicScore = self:GetChecked()
+        SaveConfig()
+    end)
 
-	local showSpecCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-	showSpecCheckbox:SetPoint("TOPLEFT", 20, -100) -- Position unter der zweiten Checkbox
-	showSpecCheckbox.text = showSpecCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	showSpecCheckbox.text:SetPoint("LEFT", showSpecCheckbox, "RIGHT", 5, 0)
-	showSpecCheckbox.text:SetText(lang["show_spec"])
-	showSpecCheckbox:SetScript("OnClick", function(self)
-		FIL_Config.showSpec = self:GetChecked()
-		SaveConfig()
-	end)
+    local showSpecCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    showSpecCheckbox:SetPoint("TOPLEFT", 20, -100) -- Position unter der zweiten Checkbox
+    showSpecCheckbox.text = showSpecCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    showSpecCheckbox.text:SetPoint("LEFT", showSpecCheckbox, "RIGHT", 5, 0)
+    showSpecCheckbox.text:SetText(lang["show_spec"])
+    showSpecCheckbox:SetScript("OnClick", function(self)
+        FIL_Config.showSpec = self:GetChecked()
+        SaveConfig()
+    end)
 
-	frame:SetScript("OnShow", function()
-		showKeystonesCheckbox:SetChecked(FIL_Config.showKeystones)
-		showMythicScoreCheckbox:SetChecked(FIL_Config.showMythicScore)
-		showSpecCheckbox:SetChecked(FIL_Config.showSpec)
-	end)
+    -- Neue Checkbox für Item-Level-Farbe
+    local colorItemLevelCheckbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    colorItemLevelCheckbox:SetPoint("TOPLEFT", 20, -130) -- Position unter der dritten Checkbox
+    colorItemLevelCheckbox.text = colorItemLevelCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    colorItemLevelCheckbox.text:SetPoint("LEFT", colorItemLevelCheckbox, "RIGHT", 5, 0)
+    colorItemLevelCheckbox.text:SetText(lang["color_item_level"]) -- Neuer Text für die Checkbox
+    colorItemLevelCheckbox:SetScript("OnClick", function(self)
+        FIL_Config.colorItemLevel = self:GetChecked()
+        SaveConfig()
+    end)
+
+    -- Checkbox-Zustände setzen, wenn das Menü angezeigt wird
+    frame:SetScript("OnShow", function()
+        showKeystonesCheckbox:SetChecked(FIL_Config.showKeystones)
+        showMythicScoreCheckbox:SetChecked(FIL_Config.showMythicScore)
+        showSpecCheckbox:SetChecked(FIL_Config.showSpec)
+        colorItemLevelCheckbox:SetChecked(FIL_Config.colorItemLevel) -- Neuer Zustand für Farboption
+    end)
 
     local closeButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     closeButton:SetSize(80, 22)
@@ -315,8 +336,12 @@ local function AddInfoToTooltip(tooltip, unit)
         else
             -- Item-Level hinzufügen
             if avgItemLevel then
-                local r, g, b = GetItemLevelColor(avgItemLevel)
-                tooltip:AddLine(lang["item_level"] .. ": " .. string.format("%.2f", avgItemLevel), r, g, b)
+                if FIL_Config.colorItemLevel then
+                    local r, g, b = GetItemLevelColor(avgItemLevel)
+                    tooltip:AddLine(lang["item_level"] .. ": " .. string.format("%.2f", avgItemLevel), r, g, b)
+                else
+                    tooltip:AddLine(lang["item_level"] .. ": " .. string.format("%.2f", avgItemLevel), 1, 1, 1) -- Weiß
+                end
             end
 
             -- Spezialisierung hinzufügen (wenn aktiviert)
