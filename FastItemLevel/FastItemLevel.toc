@@ -1,9 +1,9 @@
-## Interface: 110200
+## Interface: 110205
 ## Title:|cffd6266cFastItemLevel|r
 ## Notes: Show you the Players Item Level on the Tooltip.
 ## Notes-ruRU: Показывает уровень предметов игрока во всплывающей подсказке
 ## Author: BloodDragon2580
-## Version: 9.6
+## Version: 9.7
 ## IconTexture: Interface\AddOns\FastItemLevel\Media\Texture\logo
 ## SavedVariables: FastItemLevelDB
 
