@@ -381,13 +381,44 @@ local function AddInfoToTooltip(tooltip, unit)
     end)
 end
 
-local function HookTooltip()
-    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
-        local _, unit = tooltip:GetUnit()
-        if unit and UnitIsPlayer(unit) and UnitExists(unit) then
-            AddInfoToTooltip(tooltip, unit)
+local function ResolveUnitFromGUID(guid)
+    if not guid then return nil end
+
+    local units = {
+        "player", "target", "mouseover", "focus",
+        "party1", "party2", "party3", "party4", "party5"
+    }
+
+    for _, unit in ipairs(units) do
+        if UnitExists(unit) and UnitGUID(unit) == guid then
+            return unit
         end
-    end)
+    end
+
+    if IsInRaid() then
+        for i = 1, 40 do
+            local unit = "raid" .. i
+            if UnitExists(unit) and UnitGUID(unit) == guid then
+                return unit
+            end
+        end
+    end
+
+    return nil
+end
+
+local function HookTooltip()
+    TooltipDataProcessor.AddTooltipPostCall(
+        Enum.TooltipDataType.Unit,
+        function(tooltip, tooltipData)
+            if not tooltipData then return end
+
+            local unit = ResolveUnitFromGUID(tooltipData.guid)
+            if unit and UnitExists(unit) and UnitIsPlayer(unit) then
+                AddInfoToTooltip(tooltip, unit)
+            end
+        end
+    )
 end
 
 local function InitializeTooltipHooks()
@@ -398,31 +429,38 @@ f:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         LoadConfig()
         InitializeTooltipHooks()
+
     elseif event == "INSPECT_READY" then
         local guid = ...
         if pendingInspects[guid] then
             local unit = nil
-            for _, unitType in ipairs({"player", "target", "mouseover", "focus"}) do
-                if UnitGUID(unitType) == guid then
+
+            for _, unitType in ipairs({ "player", "target", "mouseover", "focus" }) do
+                if UnitExists(unitType) and UnitGUID(unitType) == guid then
                     unit = unitType
                     break
                 end
             end
+
             if not unit then
                 for i = 1, 40 do
-                    local partyUnit = (i <= 5) and ("party"..i) or ("raid"..i)
-                    if UnitGUID(partyUnit) == guid then
+                    local partyUnit = (i <= 5) and ("party" .. i) or ("raid" .. i)
+                    if UnitExists(partyUnit) and UnitGUID(partyUnit) == guid then
                         unit = partyUnit
                         break
                     end
                 end
             end
+
             if unit then
                 local avgItemLevel = CalculateAverageItemLevel(unit)
+
                 local mythicScore = C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
                 mythicScore = mythicScore and mythicScore.currentSeasonScore or nil
+
                 local specID = GetInspectSpecialization(unit)
                 local _, spec = GetSpecializationInfoByID(specID)
+
                 local keystones = GetKeystoneInfo(unit)
 
                 cachedItemLevels[guid] = avgItemLevel
@@ -430,10 +468,8 @@ f:SetScript("OnEvent", function(self, event, ...)
                 cachedSpecs[guid] = spec
                 cachedKeystones[guid] = keystones
 
-                if pendingInspects[guid] then
-                    pendingInspects[guid](avgItemLevel, mythicScore, spec, keystones)
-                    pendingInspects[guid] = nil
-                end
+                pendingInspects[guid](avgItemLevel, mythicScore, spec, keystones)
+                pendingInspects[guid] = nil
             end
         end
     end
