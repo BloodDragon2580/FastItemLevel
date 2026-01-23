@@ -215,12 +215,29 @@ SlashCmdList["FIL"] = function(msg)
 end
 
 local function CalculateAverageItemLevel(unit)
+    -- 1) Player: nimm den Blizzard-Wert (equipped)
+    if UnitIsUnit(unit, "player") then
+        local overall, equipped = GetAverageItemLevel()
+        if equipped and equipped > 0 then
+            return equipped
+        end
+    end
+
+    -- 2) Andere: nach INSPECT_READY am besten Blizzard Inspect-API nutzen
+    if C_PaperDollInfo and C_PaperDollInfo.GetInspectItemLevel and CanInspect(unit) then
+        local ilvl = C_PaperDollInfo.GetInspectItemLevel(unit)
+        if ilvl and ilvl > 0 then
+            return ilvl
+        end
+    end
+
+    -- 3) Fallback: deine alte manuelle Berechnung (falls API mal nil liefert)
     local total, count = 0, 0
     for i = 1, 17 do
-        if i ~= 4 then
+        if i ~= 4 then -- Shirt-Slot ignorieren
             local itemLink = GetInventoryItemLink(unit, i)
             if itemLink then
-                local _, _, _, itemLevel = GetItemInfo(itemLink)
+                local itemLevel = GetEffectiveItemLevel(itemLink)
                 if itemLevel and itemLevel > 0 then
                     total = total + itemLevel
                     count = count + 1
@@ -230,21 +247,28 @@ local function CalculateAverageItemLevel(unit)
     end
     if count > 0 then
         return total / count
-    else
-        return nil
     end
+
+    return nil
 end
+
+-- Itemlevel-Farben (Squish/Prepatch-taugliche Grenzen)
+-- Passe die Zahlen hier an, falls Blizzard wieder verschiebt.
+local ILVL_ORANGE = 180
+local ILVL_PURPLE = 170
+local ILVL_BLUE   = 160
 
 local function GetItemLevelColor(itemLevel)
     if not itemLevel then return 1, 1, 1 end
-    if itemLevel >= 613 then
-        return 1, 0.5, 0
-    elseif itemLevel >= 598 then
-        return 0.8, 0.3, 0.8
-    elseif itemLevel >= 580 then
-        return 0, 0.5, 1
+
+    if itemLevel >= ILVL_ORANGE then
+        return 1, 0.5, 0       -- Orange
+    elseif itemLevel >= ILVL_PURPLE then
+        return 0.8, 0.3, 0.8   -- Lila
+    elseif itemLevel >= ILVL_BLUE then
+        return 0, 0.5, 1       -- Blau
     else
-        return 0, 1, 0
+        return 0, 1, 0         -- Grün
     end
 end
 
