@@ -405,26 +405,21 @@ local function AddInfoToTooltip(tooltip, unit)
     end)
 end
 
-local function ResolveUnitFromGUID(guid)
-    if not guid then return nil end
-
-    local units = {
-        "player", "target", "mouseover", "focus",
-        "party1", "party2", "party3", "party4", "party5"
-    }
-
-    for _, unit in ipairs(units) do
-        if UnitExists(unit) and UnitGUID(unit) == guid then
-            return unit
-        end
+-- ✅ NEU: sichere Unit-Erkennung ohne GUID-Vergleich
+local function ResolveUnitFromTooltip(tooltip, tooltipData)
+    -- Blizzard liefert oft direkt den unitToken
+    if tooltipData
+        and type(tooltipData.unitToken) == "string"
+        and UnitExists(tooltipData.unitToken)
+    then
+        return tooltipData.unitToken
     end
 
-    if IsInRaid() then
-        for i = 1, 40 do
-            local unit = "raid" .. i
-            if UnitExists(unit) and UnitGUID(unit) == guid then
-                return unit
-            end
+    -- Fallback über Tooltip
+    if tooltip and tooltip.GetUnit then
+        local _, unit = tooltip:GetUnit()
+        if unit and UnitExists(unit) then
+            return unit
         end
     end
 
@@ -437,7 +432,7 @@ local function HookTooltip()
         function(tooltip, tooltipData)
             if not tooltipData then return end
 
-            local unit = ResolveUnitFromGUID(tooltipData.guid)
+            local unit = ResolveUnitFromTooltip(tooltip, tooltipData)
             if unit and UnitExists(unit) and UnitIsPlayer(unit) then
                 AddInfoToTooltip(tooltip, unit)
             end
