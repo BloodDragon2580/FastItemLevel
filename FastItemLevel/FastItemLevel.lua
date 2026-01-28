@@ -430,14 +430,48 @@ local function AddInfoToTooltip(tooltip, unit)
     end)
 end
 
--- ✅ FIX: niemals tooltipData.unitToken an UnitExists übergeben (Delves/secure Tooltip)
+-- ✅ FIX: In Delves/secure Tooltips kann tooltip:GetUnit() ein "secret value" liefern.
+-- Deshalb: niemals den zurückgegebenen "unit" vergleichen/UnitExists() darauf ausführen.
+-- Stattdessen: über tooltipData.guid auf bekannte UnitTokens mappen.
 local function ResolveUnitFromTooltip(tooltip, tooltipData)
-    if tooltip and tooltip.GetUnit then
-        local _, unit = tooltip:GetUnit()
-        if type(unit) == "string" and unit ~= "" and UnitExists(unit) then
-            return unit
+    local guid = tooltipData and tooltipData.guid
+    if not guid then return nil end
+
+    local function TryUnit(unitToken)
+        if UnitExists(unitToken) and UnitGUID(unitToken) == guid then
+            return unitToken
         end
+        return nil
     end
+
+    -- Häufige Tokens zuerst
+    local unit = TryUnit("mouseover") or TryUnit("target") or TryUnit("focus") or TryUnit("player")
+    if unit then return unit end
+
+    -- Party/Raid
+    for i = 1, 4 do
+        unit = TryUnit("party"..i)
+        if unit then return unit end
+    end
+    for i = 1, 40 do
+        unit = TryUnit("raid"..i)
+        if unit then return unit end
+    end
+
+    -- Weitere gängige Tokens (Boss/Arena/Nameplates)
+    for i = 1, 8 do
+        unit = TryUnit("boss"..i)
+        if unit then return unit end
+    end
+    for i = 1, 5 do
+        unit = TryUnit("arena"..i)
+        if unit then return unit end
+    end
+    for i = 1, 40 do
+        unit = TryUnit("nameplate"..i)
+        if unit then return unit end
+    end
+
     return nil
 end
 
