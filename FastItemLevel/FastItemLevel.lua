@@ -6,6 +6,15 @@ local cachedMythicScores = {}
 local cachedSpecs = {}
 local cachedKeystones = {}
 
+-- WoW kann in "secure" Tooltips/Events sogenannte "secret" string values liefern.
+-- Auf diesen dürfen Addons keine String-Methoden (z.B. :match) anwenden und sie
+-- teils auch nicht direkt vergleichen. Lösung: immer in einen normalen String
+-- umwandeln, bevor damit gearbeitet wird.
+local function SafeToString(v)
+    if v == nil then return nil end
+    return tostring(v)
+end
+
 FIL_Config = FIL_Config or {
     showKeystones = true,
     showMythicScore = true, -- Option für Mythic+-Score
@@ -318,7 +327,7 @@ end
 
 -- ✅ FIX: Player nicht durch CanInspect blocken + sauberes Inspect-Handling
 local function GetItemLevelAndInfo(unit, callback)
-    local guid = UnitGUID(unit)
+    local guid = SafeToString(UnitGUID(unit))
     if not guid then
         callback(nil, nil, nil, nil)
         return
@@ -370,19 +379,20 @@ local function AddInfoToTooltip(tooltip, unit)
     GetItemLevelAndInfo(unit, function(avgItemLevel, mythicScore, spec, keystones)
         if not tooltip or not tooltip.AddLine then return end
 
-        -- Entferne alte Zeilen, falls vorhanden
-        for i = tooltip:NumLines(), 1, -1 do
-            local line = _G[tooltip:GetName().."TextLeft"..i]
-            if line and line:GetText() and (
-                line:GetText():match("^"..lang["item_level"]..":") or
-                line:GetText():match("^"..lang["mythic_rating"]..":") or
-                line:GetText():match("^"..lang["spec"]..":") or
-                line:GetText():match("^"..lang["mythic_info"]..":") or
-                line:GetText() == lang["reading_info"]
-            ) then
-                line:SetText(nil)
-            end
-        end
+		-- Entferne alte Zeilen, falls vorhanden
+		for i = tooltip:NumLines(), 1, -1 do
+			local line = _G[tooltip:GetName().."TextLeft"..i]
+			local text = line and line.GetText and SafeToString(line:GetText())
+			if text and (
+				string.match(text, "^"..lang["item_level"]..":") or
+				string.match(text, "^"..lang["mythic_rating"]..":") or
+				string.match(text, "^"..lang["spec"]..":") or
+				string.match(text, "^"..lang["mythic_info"]..":") or
+				text == lang["reading_info"]
+			) then
+				line:SetText(nil)
+			end
+		end
 
         if avgItemLevel == "reading" then
             tooltip:AddLine(lang["reading_info"], 1, 1, 1)
@@ -434,11 +444,11 @@ end
 -- Deshalb: niemals den zurückgegebenen "unit" vergleichen/UnitExists() darauf ausführen.
 -- Stattdessen: über tooltipData.guid auf bekannte UnitTokens mappen.
 local function ResolveUnitFromTooltip(tooltip, tooltipData)
-    local guid = tooltipData and tooltipData.guid
+	local guid = SafeToString(tooltipData and tooltipData.guid)
     if not guid then return nil end
 
     local function TryUnit(unitToken)
-        if UnitExists(unitToken) and UnitGUID(unitToken) == guid then
+		if UnitExists(unitToken) and SafeToString(UnitGUID(unitToken)) == guid then
             return unitToken
         end
         return nil
@@ -498,12 +508,12 @@ f:SetScript("OnEvent", function(self, event, ...)
         InitializeTooltipHooks()
 
     elseif event == "INSPECT_READY" then
-        local guid = ...
+		local guid = SafeToString(...)
         if pendingInspects[guid] then
             local unit = nil
 
-            for _, unitType in ipairs({ "player", "target", "mouseover", "focus" }) do
-                if UnitExists(unitType) and UnitGUID(unitType) == guid then
+			for _, unitType in ipairs({ "player", "target", "mouseover", "focus" }) do
+				if UnitExists(unitType) and SafeToString(UnitGUID(unitType)) == guid then
                     unit = unitType
                     break
                 end
@@ -513,7 +523,7 @@ f:SetScript("OnEvent", function(self, event, ...)
             if not unit then
                 for i = 1, 4 do
                     local partyUnit = "party" .. i
-                    if UnitExists(partyUnit) and UnitGUID(partyUnit) == guid then
+					if UnitExists(partyUnit) and SafeToString(UnitGUID(partyUnit)) == guid then
                         unit = partyUnit
                         break
                     end
@@ -523,7 +533,7 @@ f:SetScript("OnEvent", function(self, event, ...)
             if not unit then
                 for i = 1, 40 do
                     local raidUnit = "raid" .. i
-                    if UnitExists(raidUnit) and UnitGUID(raidUnit) == guid then
+					if UnitExists(raidUnit) and SafeToString(UnitGUID(raidUnit)) == guid then
                         unit = raidUnit
                         break
                     end
