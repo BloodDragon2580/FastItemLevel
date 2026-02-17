@@ -327,7 +327,7 @@ end
 
 -- ✅ FIX: Player nicht durch CanInspect blocken + sauberes Inspect-Handling
 local function GetItemLevelAndInfo(unit, callback)
-    local guid = SafeToString(UnitGUID(unit))
+    local guid = UnitGUID(unit)
     if not guid then
         callback(nil, nil, nil, nil)
         return
@@ -365,7 +365,7 @@ local function GetItemLevelAndInfo(unit, callback)
         return
     end
 
-    pendingInspects[guid] = callback
+    pendingInspects[guid] = { callback = callback, unit = unit }
 
     -- NotifyInspect kann in manchen Situationen nil/blocked sein -> sicher aufrufen
     if NotifyInspect then
@@ -444,42 +444,29 @@ end
 -- Deshalb: niemals den zurückgegebenen "unit" vergleichen/UnitExists() darauf ausführen.
 -- Stattdessen: über tooltipData.guid auf bekannte UnitTokens mappen.
 local function ResolveUnitFromTooltip(tooltip, tooltipData)
-	local guid = SafeToString(tooltipData and tooltipData.guid)
-    if not guid then return nil end
+    -- In modernen/secure Tooltips kann tooltipData.guid ein "secret value" sein.
+    -- Secret values dürfen NICHT direkt verglichen werden (==), sonst kommt:
+    -- "attempt to compare a secret string value".
+    --
+    -- Lösung: Wenn vorhanden, direkt tooltipData.unitToken nutzen (kein GUID-Vergleich nötig).
+    if tooltipData and tooltipData.unitToken and UnitExists(tooltipData.unitToken) then
+        return tooltipData.unitToken
+    end
 
-    local function TryUnit(unitToken)
-		if UnitExists(unitToken) and SafeToString(UnitGUID(unitToken)) == guid then
-            return unitToken
+    -- Fallback: Tooltip:GetUnit() liefert oft den UnitToken.
+    if tooltip and tooltip.GetUnit then
+        local _, unit = tooltip:GetUnit()
+        if unit then
+            local ok, exists = pcall(UnitExists, unit)
+            if ok and exists then
+                return unit
+            end
         end
-        return nil
     end
 
-    -- Häufige Tokens zuerst
-    local unit = TryUnit("mouseover") or TryUnit("target") or TryUnit("focus") or TryUnit("player")
-    if unit then return unit end
-
-    -- Party/Raid
-    for i = 1, 4 do
-        unit = TryUnit("party"..i)
-        if unit then return unit end
-    end
-    for i = 1, 40 do
-        unit = TryUnit("raid"..i)
-        if unit then return unit end
-    end
-
-    -- Weitere gängige Tokens (Boss/Arena/Nameplates)
-    for i = 1, 8 do
-        unit = TryUnit("boss"..i)
-        if unit then return unit end
-    end
-    for i = 1, 5 do
-        unit = TryUnit("arena"..i)
-        if unit then return unit end
-    end
-    for i = 1, 40 do
-        unit = TryUnit("nameplate"..i)
-        if unit then return unit end
+    -- Letzter Fallback: meistens ist es der Mouseover
+    if UnitExists("mouseover") then
+        return "mouseover"
     end
 
     return nil
@@ -508,39 +495,14 @@ f:SetScript("OnEvent", function(self, event, ...)
         InitializeTooltipHooks()
 
     elseif event == "INSPECT_READY" then
-		local guid = SafeToString(...)
-        if pendingInspects[guid] then
-            local unit = nil
+		local guid = ...
+        local pending = pendingInspects[guid]
+        if pending then
+            local unit = pending.unit
+			-- Falls Unit nicht mehr existiert (z.B. weggelaufen), kein GUID-Vergleich machen
+			if unit and not UnitExists(unit) then unit = nil end
 
-			for _, unitType in ipairs({ "player", "target", "mouseover", "focus" }) do
-				if UnitExists(unitType) and SafeToString(UnitGUID(unitType)) == guid then
-                    unit = unitType
-                    break
-                end
-            end
-
-            -- ✅ FIX: party korrekt (1-4), raid korrekt (1-40)
-            if not unit then
-                for i = 1, 4 do
-                    local partyUnit = "party" .. i
-					if UnitExists(partyUnit) and SafeToString(UnitGUID(partyUnit)) == guid then
-                        unit = partyUnit
-                        break
-                    end
-                end
-            end
-
-            if not unit then
-                for i = 1, 40 do
-                    local raidUnit = "raid" .. i
-					if UnitExists(raidUnit) and SafeToString(UnitGUID(raidUnit)) == guid then
-                        unit = raidUnit
-                        break
-                    end
-                end
-            end
-
-            if unit then
+			if unit then
                 local avgItemLevel = CalculateAverageItemLevel(unit)
 
                 local mythicScore = C_PlayerInfo and C_PlayerInfo.GetPlayerMythicPlusRatingSummary and C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
@@ -560,7 +522,7 @@ f:SetScript("OnEvent", function(self, event, ...)
                 cachedSpecs[guid] = spec
                 cachedKeystones[guid] = keystones
 
-                pendingInspects[guid](avgItemLevel, mythicScore, spec, keystones)
+                pending.callback(avgItemLevel, mythicScore, spec, keystones)
             end
 
             pendingInspects[guid] = nil
