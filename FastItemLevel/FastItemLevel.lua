@@ -12,7 +12,25 @@ local cachedKeystones = {}
 -- umwandeln, bevor damit gearbeitet wird.
 local function SafeToString(v)
     if v == nil then return nil end
-    return tostring(v)
+
+    -- Patch 12.0+ can return "secret" values on tainted paths (e.g. tooltip text).
+    -- These must NOT be string-converted or used with string.* APIs.
+    if issecretvalue and issecretvalue(v) then
+        return nil
+    end
+
+    local ok, s = pcall(tostring, v)
+    if ok then
+        return s
+    end
+    return nil
+end
+
+local function SafeMatch(text, pattern)
+    if not text or not pattern then return false end
+    if issecretvalue and issecretvalue(text) then return false end
+    local ok, res = pcall(string.match, text, pattern)
+    return ok and res ~= nil
 end
 
 FIL_Config = FIL_Config or {
@@ -384,10 +402,10 @@ local function AddInfoToTooltip(tooltip, unit)
 			local line = _G[tooltip:GetName().."TextLeft"..i]
 			local text = line and line.GetText and SafeToString(line:GetText())
 			if text and (
-				string.match(text, "^"..lang["item_level"]..":") or
-				string.match(text, "^"..lang["mythic_rating"]..":") or
-				string.match(text, "^"..lang["spec"]..":") or
-				string.match(text, "^"..lang["mythic_info"]..":") or
+				SafeMatch(text, "^"..lang["item_level"]..":") or
+				SafeMatch(text, "^"..lang["mythic_rating"]..":") or
+				SafeMatch(text, "^"..lang["spec"]..":") or
+				SafeMatch(text, "^"..lang["mythic_info"]..":") or
 				text == lang["reading_info"]
 			) then
 				line:SetText(nil)
