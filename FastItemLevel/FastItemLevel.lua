@@ -1,6 +1,7 @@
 local f = CreateFrame("Frame")
 
 local pendingInspects = {}
+local activeInspectKey = nil
 local cachedItemLevels = {}
 local cachedMythicScores = {}
 local cachedSpecs = {}
@@ -31,6 +32,46 @@ local function SafeMatch(text, pattern)
     if issecretvalue and issecretvalue(text) then return false end
     local ok, res = pcall(string.match, text, pattern)
     return ok and res ~= nil
+end
+
+local function IsSecretValue(v)
+    if not issecretvalue then return false end
+    local ok, result = pcall(issecretvalue, v)
+    return ok and result == true
+end
+
+-- Patch 12.0+ / Midnight: In einigen neuen secure Tooltip-Kontexten kann
+-- UnitGUID(unit) ein "secret value" sein. Secret values dürfen nicht als
+-- Tabellen-Key genutzt werden. Darum nutzt der Cache bevorzugt Name-Realm.
+local function GetSafeUnitCacheKey(unit)
+    if not unit then return nil end
+
+    local okExists, exists = pcall(UnitExists, unit)
+    if not okExists or not exists then return nil end
+
+    if UnitFullName then
+        local okName, name, realm = pcall(UnitFullName, unit)
+        if okName and name and not IsSecretValue(name) and not IsSecretValue(realm) then
+            name = SafeToString(name)
+            realm = SafeToString(realm)
+
+            if name and name ~= "" then
+                if not realm or realm == "" then
+                    realm = GetNormalizedRealmName and GetNormalizedRealmName() or ""
+                end
+
+                return name .. "-" .. realm
+            end
+        end
+    end
+
+    -- Nur als Fallback verwenden, wenn die GUID wirklich ein normaler String ist.
+    local okGuid, guid = pcall(UnitGUID, unit)
+    if okGuid and guid and not IsSecretValue(guid) then
+        return SafeToString(guid)
+    end
+
+    return nil
 end
 
 FIL_Config = FIL_Config or {
@@ -345,8 +386,8 @@ end
 
 -- ✅ FIX: Player nicht durch CanInspect blocken + sauberes Inspect-Handling
 local function GetItemLevelAndInfo(unit, callback)
-    local guid = UnitGUID(unit)
-    if not guid then
+    local cacheKey = GetSafeUnitCacheKey(unit)
+    if not cacheKey then
         callback(nil, nil, nil, nil)
         return
     end
@@ -373,8 +414,8 @@ local function GetItemLevelAndInfo(unit, callback)
         return
     end
 
-    if cachedItemLevels[guid] and cachedMythicScores[guid] and cachedSpecs[guid] then
-        callback(cachedItemLevels[guid], cachedMythicScores[guid], cachedSpecs[guid], keystones)
+    if cachedItemLevels[cacheKey] and cachedMythicScores[cacheKey] and cachedSpecs[cacheKey] then
+        callback(cachedItemLevels[cacheKey], cachedMythicScores[cacheKey], cachedSpecs[cacheKey], keystones)
         return
     end
 
@@ -383,7 +424,8 @@ local function GetItemLevelAndInfo(unit, callback)
         return
     end
 
-    pendingInspects[guid] = { callback = callback, unit = unit }
+    pendingInspects[cacheKey] = { callback = callback, unit = unit }
+    activeInspectKey = cacheKey
 
     -- NotifyInspect kann in manchen Situationen nil/blocked sein -> sicher aufrufen
     if NotifyInspect then
@@ -513,14 +555,17 @@ f:SetScript("OnEvent", function(self, event, ...)
         InitializeTooltipHooks()
 
     elseif event == "INSPECT_READY" then
-		local guid = ...
-        local pending = pendingInspects[guid]
+        -- Patch 12.0+ kann die GUID aus INSPECT_READY als secret value liefern.
+        -- Deshalb nicht pendingInspects[guid] nutzen, sondern den sicheren Key,
+        -- der beim NotifyInspect-Aufruf aus Name-Realm erzeugt wurde.
+        local cacheKey = activeInspectKey
+        local pending = cacheKey and pendingInspects[cacheKey] or nil
         if pending then
             local unit = pending.unit
-			-- Falls Unit nicht mehr existiert (z.B. weggelaufen), kein GUID-Vergleich machen
-			if unit and not UnitExists(unit) then unit = nil end
+            -- Falls Unit nicht mehr existiert (z.B. weggelaufen), kein GUID-Vergleich machen
+            if unit and not UnitExists(unit) then unit = nil end
 
-			if unit then
+            if unit then
                 local avgItemLevel = CalculateAverageItemLevel(unit)
 
                 local mythicScore = C_PlayerInfo and C_PlayerInfo.GetPlayerMythicPlusRatingSummary and C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
@@ -535,20 +580,22 @@ f:SetScript("OnEvent", function(self, event, ...)
 
                 local keystones = GetKeystoneInfo(unit)
 
-                cachedItemLevels[guid] = avgItemLevel
-                cachedMythicScores[guid] = mythicScore
-                cachedSpecs[guid] = spec
-                cachedKeystones[guid] = keystones
+                cachedItemLevels[cacheKey] = avgItemLevel
+                cachedMythicScores[cacheKey] = mythicScore
+                cachedSpecs[cacheKey] = spec
+                cachedKeystones[cacheKey] = keystones
 
                 pending.callback(avgItemLevel, mythicScore, spec, keystones)
             end
 
-            pendingInspects[guid] = nil
+            pendingInspects[cacheKey] = nil
+        end
 
-            -- ✅ FIX: Inspect freigeben
-            if ClearInspectPlayer then
-                ClearInspectPlayer()
-            end
+        activeInspectKey = nil
+
+        -- ✅ FIX: Inspect freigeben
+        if ClearInspectPlayer then
+            ClearInspectPlayer()
         end
     end
 end)
