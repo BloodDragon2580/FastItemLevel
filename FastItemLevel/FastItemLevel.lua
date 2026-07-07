@@ -384,6 +384,19 @@ local function GetKeystoneInfo(unit)
     return keystones
 end
 
+-- InspectFrame braucht den Blizzard-Inspect-Slot exklusiv.
+-- Wenn das normale Inspect-Fenster offen ist, darf dieses Addon KEIN NotifyInspect()
+-- für Mouseover/Tooltips auslösen, sonst verschwinden die angezeigten Items.
+local function IsBlizzardInspectFrameOpen()
+    if InspectFrame and InspectFrame:IsShown() then
+        return true
+    end
+    if _G["InspectFrame"] and _G["InspectFrame"]:IsShown() then
+        return true
+    end
+    return false
+end
+
 -- ✅ FIX: Player nicht durch CanInspect blocken + sauberes Inspect-Handling
 local function GetItemLevelAndInfo(unit, callback)
     local cacheKey = GetSafeUnitCacheKey(unit)
@@ -424,12 +437,25 @@ local function GetItemLevelAndInfo(unit, callback)
         return
     end
 
+    -- Wichtig: Während der Spieler selbst jemanden inspiziert, nicht dazwischenfunken.
+    -- Das Addon würde sonst mit NotifyInspect(mouseover) die Daten vom InspectFrame überschreiben.
+    if IsBlizzardInspectFrameOpen() then
+        callback(nil, nil, nil, keystones)
+        return
+    end
+
     pendingInspects[cacheKey] = { callback = callback, unit = unit }
     activeInspectKey = cacheKey
 
     -- NotifyInspect kann in manchen Situationen nil/blocked sein -> sicher aufrufen
     if NotifyInspect then
-        NotifyInspect(unit)
+        local ok = pcall(NotifyInspect, unit)
+        if not ok then
+            pendingInspects[cacheKey] = nil
+            if activeInspectKey == cacheKey then activeInspectKey = nil end
+            callback(nil, nil, nil, keystones)
+            return
+        end
     end
 
     callback("reading", "reading", "reading", keystones)
@@ -593,10 +619,7 @@ f:SetScript("OnEvent", function(self, event, ...)
 
         activeInspectKey = nil
 
-        -- ✅ FIX: Inspect freigeben
-        if ClearInspectPlayer then
-            ClearInspectPlayer()
-        end
+        -- Wichtig: Kein ClearInspectPlayer() hier. Das würde das normale InspectFrame leeren.
     end
 end)
 
