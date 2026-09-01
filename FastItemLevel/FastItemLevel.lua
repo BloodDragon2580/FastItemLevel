@@ -558,6 +558,129 @@ local function ResolveUnitFromTooltip(tooltip, tooltipData)
     return nil
 end
 
+-- Patch 12.1+ / Midnight: GetInspectSpecialization(unit) can return a secret
+-- specialization ID on addon/tainted execution paths. Passing that value to
+-- GetSpecializationInfoByID() triggers a Usage error. Prefer the inspected
+-- specialization *index* and only use the legacy spec-ID path when the value
+-- is demonstrably non-secret.
+local specScanTooltip = CreateFrame("GameTooltip", "FastItemLevelSpecScanTooltip", UIParent, "GameTooltipTemplate")
+
+local function GetSpecNameFromUnitTooltip(unit)
+    if not unit or not UnitExists(unit) then return nil end
+
+    local okClass, _, _, classID = pcall(UnitClass, unit)
+    if not okClass or not classID or IsSecretValue(classID) then return nil end
+
+    local getSpecCount = C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializationsForClassID
+    local getClassSpecInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfoForClassID)
+        or GetSpecializationInfoForClassID
+    if not getSpecCount or not getClassSpecInfo then return nil end
+
+    local okCount, specCount = pcall(getSpecCount, classID)
+    if not okCount or not specCount or IsSecretValue(specCount) then return nil end
+
+    local okSex, sex = pcall(UnitSex, unit)
+    if not okSex or IsSecretValue(sex) then sex = nil end
+
+    local specNames = {}
+    for index = 1, specCount do
+        local okInfo, _, specName = pcall(getClassSpecInfo, classID, index, sex)
+        specName = okInfo and SafeToString(specName) or nil
+        if specName and specName ~= "" then
+            specNames[#specNames + 1] = specName
+        end
+    end
+
+    if #specNames == 0 then return nil end
+
+    specScanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    specScanTooltip:ClearLines()
+
+    local okTooltip = pcall(specScanTooltip.SetUnit, specScanTooltip, unit)
+    if not okTooltip then
+        specScanTooltip:Hide()
+        return nil
+    end
+
+    local found = nil
+    for lineIndex = 1, specScanTooltip:NumLines() do
+        local left = _G["FastItemLevelSpecScanTooltipTextLeft" .. lineIndex]
+        local right = _G["FastItemLevelSpecScanTooltipTextRight" .. lineIndex]
+        local leftText = left and left.GetText and SafeToString(left:GetText()) or nil
+        local rightText = right and right.GetText and SafeToString(right:GetText()) or nil
+
+        for _, specName in ipairs(specNames) do
+            if (leftText and string.find(leftText, specName, 1, true))
+                or (rightText and string.find(rightText, specName, 1, true)) then
+                found = specName
+                break
+            end
+        end
+
+        if found then break end
+    end
+
+    specScanTooltip:Hide()
+    return found
+end
+
+local function GetInspectedSpecName(unit)
+    if not unit or not UnitExists(unit) then return nil end
+
+    local specAPI = C_SpecializationInfo
+
+    -- Preferred Midnight path: ask for the inspected specialization index.
+    -- The index is then resolved with the inspect-aware specialization API,
+    -- avoiding the secret specialization ID entirely.
+    if specAPI and specAPI.GetSpecialization and specAPI.GetSpecializationInfo then
+        local okIndex, specIndex = pcall(specAPI.GetSpecialization, true, false)
+        if okIndex and specIndex and not IsSecretValue(specIndex) then
+            local okSex, sex = pcall(UnitSex, unit)
+            if not okSex or IsSecretValue(sex) then sex = nil end
+
+            local okInfo, _, specName = pcall(
+                specAPI.GetSpecializationInfo,
+                specIndex,
+                true,
+                false,
+                unit,
+                sex
+            )
+
+            specName = okInfo and SafeToString(specName) or nil
+            if specName and specName ~= "" then
+                return specName
+            end
+        end
+    end
+
+    -- Legacy fallback. Never pass a secret specID into another API.
+    local getInspectSpec = (specAPI and specAPI.GetInspectSpecialization) or GetInspectSpecialization
+    if getInspectSpec then
+        local okSpec, specID = pcall(getInspectSpec, unit)
+        if okSpec and specID and not IsSecretValue(specID) then
+            local getSpecInfo = (specAPI and specAPI.GetSpecializationInfoForSpecID)
+                or GetSpecializationInfoForSpecID
+                or GetSpecializationInfoByID
+
+            if getSpecInfo then
+                local okSex, sex = pcall(UnitSex, unit)
+                if not okSex or IsSecretValue(sex) then sex = nil end
+
+                local okInfo, _, specName = pcall(getSpecInfo, specID, sex)
+                specName = okInfo and SafeToString(specName) or nil
+                if specName and specName ~= "" then
+                    return specName
+                end
+            end
+        end
+    end
+
+    -- Last fallback used by modern tooltip addons: read the normal unit tooltip
+    -- and match it against the target class' localized specialization names.
+    return GetSpecNameFromUnitTooltip(unit)
+end
+
 local function HookTooltip()
     TooltipDataProcessor.AddTooltipPostCall(
         Enum.TooltipDataType.Unit,
@@ -597,12 +720,7 @@ f:SetScript("OnEvent", function(self, event, ...)
                 local mythicScore = C_PlayerInfo and C_PlayerInfo.GetPlayerMythicPlusRatingSummary and C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
                 mythicScore = mythicScore and mythicScore.currentSeasonScore or nil
 
-                local spec = nil
-                if GetInspectSpecialization and GetSpecializationInfoByID then
-                    local specID = GetInspectSpecialization(unit)
-                    local _, specName = GetSpecializationInfoByID(specID)
-                    spec = specName
-                end
+                local spec = GetInspectedSpecName(unit)
 
                 local keystones = GetKeystoneInfo(unit)
 
